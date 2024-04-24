@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+from flask import abort
 from flask import Flask, make_response, jsonify, request, session
 from flask_migrate import Migrate
 from flask_restful import Api, Resource
@@ -19,19 +19,11 @@ db.init_app(app)
 api = Api(app)
 
 @app.before_request
-def check_if_logged_in():
-    open_access_list = [
-        'clear',
-        'article_list',
-        'show_article',
-        'login',
-        'logout',
-        'check_session'
-    ]
+def chck_if_logged_id():
+    open_access_list = ['clear', 'article_list', 'show_article', 'login', 'log_out', 'check_session']
 
-    if (request.endpoint) not in open_access_list and (not session.get('user_id')):
-        return {'error': '401 Unauthorized'}, 401
-
+    if request.endpoint not in open_access_list and not session.get('user_id'):
+        return {"error": "401 Unauthorized"}, 401
 class ClearSession(Resource):
 
     def delete(self):
@@ -61,12 +53,7 @@ class ShowArticle(Resource):
             if session['page_views'] <= 3:
                 return article_json, 200
 
-            return make_response(
-                jsonify({
-                    'message': 'Maximum pageview limit reached'
-                }),
-                401
-            )
+            return {'message': 'Maximum pageview limit reached'}, 401
 
         return article_json, 200
 
@@ -103,19 +90,33 @@ class CheckSession(Resource):
         
         return {}, 401
 
+# This is a view where one will be able to only see the members only articles
 class MemberOnlyIndex(Resource):
-    
     def get(self):
-    
-        articles = Article.query.filter(Article.is_member_only == True).all()
-        return [article.to_dict() for article in articles], 200
+        # Where I will be appending the articles
+        data = []
+        # Getting the articles which are for members only
+        for article in Article.query.filter(Article.is_member_only == True).all():
+            # Converting each article to a dict
+            article_dict = article.to_dict()
+            # Appening the dict to the data array
+            data.append(article_dict)
 
+        response = make_response(data, 200)
+        return response
+
+
+# This is just a view that a logged_in user can be access any article of their liking without any restrictions
 class MemberOnlyArticle(Resource):
-    
     def get(self, id):
-
+        # Getting the required article requested by the logged in user
         article = Article.query.filter(Article.id == id).first()
-        return article.to_dict(), 200
+        # Coverting that article ot a dict
+        article_dict = article.to_dict()
+        # Generating the response
+        response = make_response(article_dict, 200)
+
+        return response
 
 api.add_resource(ClearSession, '/clear', endpoint='clear')
 api.add_resource(IndexArticle, '/articles', endpoint='article_list')
